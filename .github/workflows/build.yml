@@ -766,7 +766,8 @@ jobs:
           path: build
           key: freebsd-${{ matrix.release }}-cmake-${{ matrix.EVENT_MATRIX }}-v1
 
-      - uses: vmactions/freebsd-vm@v0
+      - name: Build
+        uses: vmactions/freebsd-vm@v0
         with:
           release: ${{ matrix.release }}
           prepare: |
@@ -833,4 +834,81 @@ jobs:
           name: freebsd-${{ matrix.release }}-cmake-${{ matrix.EVENT_MATRIX }}-build
           path: build
 
+  freebsd-autotools-job:
+    runs-on: macos-12
+    if: "!contains(github.event.head_commit.message, 'ci/freebsd skip') && !contains(github.event.head_commit.message, 'ci/freebsd/autotools skip')"
+    strategy:
+      fail-fast: false
+      matrix:
+        release: ["12.3", "13.0", "13.1"]
+        EVENT_MATRIX:
+          - NONE
+          - NO_SSL
+          - DISABLE_OPENSSL
+          - DISABLE_THREAD_SUPPORT
+          - DISABLE_DEBUG_MODE
+          - DISABLE_MM_REPLACEMENT
 
+    steps:
+      - uses: actions/checkout@v2.0.0
+
+      - name: Cache Build
+        uses: actions/cache@v2
+        with:
+          path: build
+          key: freebsd-${{ matrix.release }}-autotools-${{ matrix.EVENT_MATRIX }}-v1
+
+
+      - name: Build
+        uses: vmactions/freebsd-vm@v0
+        with:
+          release: ${{ matrix.release }}
+          prepare: |
+            pkg install -y  mbedtls  python3 autoconf automake libtool pkgconf
+          usesh: true
+          run: |
+            if [ "${{ matrix.EVENT_MATRIX }}" == "DISABLE_OPENSSL" ]; then
+              EVENT_CONFIGURE_OPTIONS="--disable-openssl"
+            
+            elif [ "${{ matrix.EVENT_MATRIX }}" == "NO_SSL" ]; then
+              EVENT_CONFIGURE_OPTIONS="--disable-openssl --disable-mbedtls"
+            
+            elif [ "${{ matrix.EVENT_MATRIX }}" == "DISABLE_THREAD_SUPPORT" ]; then
+              EVENT_CONFIGURE_OPTIONS="--disable-thread-support"
+            
+            elif [ "${{ matrix.EVENT_MATRIX }}" == "DISABLE_DEBUG_MODE" ]; then
+              EVENT_CONFIGURE_OPTIONS="--disable-debug-mode"
+            
+            elif [ "${{ matrix.EVENT_MATRIX }}" == "DISABLE_MM_REPLACEMENT" ]; then
+              EVENT_CONFIGURE_OPTIONS="--disable-malloc-replacement"
+            
+            else
+              EVENT_CONFIGURE_OPTIONS=""
+            fi
+            
+            ./autogen.sh
+            mkdir -p build
+            cd build
+            echo [configure]: ../configure $EVENT_CONFIGURE_OPTIONS
+            ../configure $EVENT_CONFIGURE_OPTIONS
+            make
+
+      - name: Test
+        uses: nick-fields/retry@v2
+        with:
+          max_attempts: 5
+          timeout_minutes: 20
+          shell: bash
+          command: |
+            ssh freebsd sh <<EOF
+            JOBS=1
+            cd build
+            make -j $JOBS verify
+            EOF
+
+      - uses: actions/upload-artifact@v1
+        if: failure()
+        with:
+          name: freebsd-${{ matrix.release }}-autotools-${{ matrix.EVENT_MATRIX }}-build
+          path: build
+          
