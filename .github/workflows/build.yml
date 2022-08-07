@@ -770,7 +770,7 @@ jobs:
         with:
           release: ${{ matrix.release }}
           prepare: |
-            pkg install -y  mbedtls cmake
+            pkg install -y  mbedtls cmake python3
           usesh: true
           run: |
             # NOTE: cmake does not support autodetection of OPENSSL_ROOT_DIR via brew
@@ -822,9 +822,9 @@ jobs:
             export CTEST_OUTPUT_ON_FAILURE=1
             cd build
             if [ "${{ matrix.EVENT_MATRIX }}" == "TEST_EXPORT_STATIC" ]; then
-              sudo python3 ../test-export/test-export.py static
+              python3 ../test-export/test-export.py static
             elif [ "${{ matrix.EVENT_MATRIX }}" == "TEST_EXPORT_SHARED" ]; then
-              sudo python3 ../test-export/test-export.py shared
+              python3 ../test-export/test-export.py shared
             else
               cmake --build . --target verify
             fi
