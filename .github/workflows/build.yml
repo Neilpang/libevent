@@ -816,6 +816,7 @@ jobs:
           shell: bash
           command: |
             ssh freebsd sh <<EOF
+            cd $GITHUB_WORKSPACE
             JOBS=1
             export CTEST_PARALLEL_LEVEL=$JOBS
             export CTEST_OUTPUT_ON_FAILURE=1
